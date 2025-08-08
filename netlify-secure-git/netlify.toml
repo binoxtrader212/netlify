@@ -1,0 +1,10 @@
+[build]
+  publish = "public"
+
+[[edge_functions]]
+  path = "/"
+  function = "protect"
+
+[[edge_functions]]
+  path = "/app/*"
+  function = "protect"

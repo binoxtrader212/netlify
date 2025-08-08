@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bino Pulse 1.0 — Ready</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root{
+      --bg:#0e0f10;
+      --panel:#15171a;
+      --panel-2:#1b1e22;
+      --text:#e9ecef;
+      --muted:#9aa0a6;
+      --yellow:#FFD200; /* Binomo */
+      --up:#00b894;
+      --down:#d63031;
+      --border:#2a2f36;
+      --shadow:0 8px 24px rgba(0,0,0,.35);
+      --shadow-soft:0 6px 16px rgba(0,0,0,.25);
+      --ring:0 0 0 2px rgba(255,210,0,.25),0 0 0 6px rgba(255,210,0,.12);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      background: radial-gradient(1200px 600px at 80% -10%, rgba(255,210,0,.08), transparent 60%),
+                  radial-gradient(900px 500px at -10% 110%, rgba(0,184,148,.08), transparent 60%),
+                  var(--bg);
+      color:var(--text);
+      letter-spacing:.2px;
+    }
+
+    /* Layout */
+    .container{
+      display:grid;
+      grid-template-columns: 2.25fr 7fr 3.25fr;
+      gap:0;
+      height:100vh;
+    }
+    .panel{
+      padding:14px;
+      overflow:auto;
+      background:linear-gradient(180deg, var(--panel), var(--panel-2));
+      border-right:1px solid var(--border);
+    }
+    .panel:last-child{border-right:none;border-left:1px solid var(--border)}
+    .assets{position:relative}
+    .chart{position:relative; padding-top:56px; /* space for title row */}
+    .signals{position:relative}
+
+    /* Headings */
+    h2{
+      margin:6px 0 12px;
+      font-weight:700;
+      letter-spacing:.3px;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .title-wrap{
+      position:absolute;left:14px;right:14px;top:12px;
+      display:flex;align-items:center;gap:10px;justify-content:space-between;
+    }
+    #assetTitle{
+      margin:0;
+      font-size:20px;
+      color:var(--yellow);
+      letter-spacing:.4px;
+      display:flex;align-items:center;gap:10px;
+      text-shadow:0 1px 0 #000;
+    }
+    .market-badge{
+      font-size:12px;
+      padding:4px 8px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,.03);
+      color:var(--muted);
+    }
+    .market-badge.open{color:#0dd19f; border-color:rgba(13,209,159,.25); background:rgba(13,209,159,.06)}
+    .market-badge.closed{color:#ff7272; border-color:rgba(255,114,114,.25); background:rgba(255,114,114,.06)}
+
+    /* Inputs */
+    input[type="text"]{
+      width:100%;padding:.6rem .7rem;margin:8px 0 12px;
+      background:#101215;border:1px solid var(--border);color:var(--text);
+      border-radius:10px; outline:none; transition:.2s ease;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+    }
+    input[type="text"]:focus{border-color:#2f3944; box-shadow: var(--ring);}
+
+    /* Asset list buttons */
+    #assetList .btn-asset{
+      display:block;width:100%;
+      margin-bottom:8px;
+      background:#0f1114;border:1px solid var(--border);color:var(--text);
+      padding:.6rem .7rem;text-align:left;cursor:pointer;border-radius:12px;
+      transition: transform .12s ease, box-shadow .2s ease, border-color .2s ease;
+    }
+    #assetList .btn-asset:hover{transform: translateY(-1px); box-shadow: var(--shadow-soft); border-color:#3a424d}
+    #assetList .btn-asset.active{background:linear-gradient(180deg, #14171a, #0f1114); border-color: rgba(255,210,0,.55); box-shadow:0 0 0 1px rgba(255,210,0,.4), 0 10px 22px rgba(255,210,0,.06)}
+    #assetList .btn-asset:disabled{opacity:.45; cursor:not-allowed; filter:grayscale(.3) pointer-events: none;}
+
+    /* Pro + Start buttons */
+    #proBtn, #startBtn{
+      border:none; font-weight:800; letter-spacing:.3px; cursor:pointer;
+      padding:.52rem 1rem; border-radius:12px;
+      transition: transform .12s ease, box-shadow .2s ease, background .2s ease;
+    }
+    #proBtn{
+      background:var(--yellow); color:#000; box-shadow: var(--shadow);
+    }
+    #proBtn:hover{transform: translateY(-1px); box-shadow:0 12px 26px rgba(255,210,0,.25)}
+    #proBtn.pulsing{position:relative}
+    #proBtn.pulsing::after{
+      content:""; position:absolute; inset:-4px;
+      border-radius:14px; pointer-events:none;
+      animation:pulse 1.6s ease-out infinite;
+      box-shadow:0 0 0 0 rgba(255,210,0,.45);
+    }
+    @keyframes pulse{
+      0%{box-shadow:0 0 0 0 rgba(255,210,0,.45)}
+      70%{box-shadow:0 0 0 10px rgba(255,210,0,0)}
+      100%{box-shadow:0 0 0 0 rgba(255,210,0,0)}
+    }
+
+    #startBtn{
+      background:#21262c; color:var(--text); border:1px solid var(--border);
+    }
+    #startBtn:hover{transform: translateY(-1px); box-shadow: var(--shadow-soft)}
+    #startBtn.running{background:#10151a; box-shadow:0 0 0 2px rgba(0,184,148,.25), 0 8px 20px rgba(0,184,148,.14); border-color:rgba(0,184,148,.45)}
+
+    /* Chart frame styling */
+    .chart-frame-wrap{
+      position:relative; height:calc(100% - 10px);
+      border-radius:16px; overflow:hidden;
+      box-shadow: inset 0 0 0 1px rgba(255,210,0,.18), 0 20px 40px rgba(0,0,0,.35);
+    }
+    iframe{width:100%;height:100%;border:0; display:block; background:#0c0d0e}
+
+    /* Signal Feed */
+    .signals h2{color:var(--yellow)}
+    .control-row{display:flex;align-items:center;gap:8px}
+    #intervalSelect{
+      background:#101215;border:1px solid var(--border);color:var(--text);
+      padding:.35rem .6rem;border-radius:10px; outline:none; transition:.2s ease;
+    }
+    #intervalSelect:focus{border-color:#38414b; box-shadow: var(--ring)}
+
+    .signal{
+      background:linear-gradient(180deg, #121417, #0f1013);
+      margin:10px 0; padding:.65rem .7rem; color:var(--text);
+      border-radius:14px; display:flex; flex-direction:column; gap:6px;
+      border:1px solid #1e2329; box-shadow: var(--shadow-soft);
+      animation: slideIn .25s ease, fadeIn .25s ease;
+    }
+    @keyframes fadeIn{from{opacity:0} to{opacity:1}}
+    @keyframes slideIn{from{transform:translateY(-6px)} to{transform:translateY(0)}}
+
+    .signal .row{display:flex;align-items:center;gap:8px; font-weight:700}
+    .sig-icon{
+      width:24px;height:24px; display:inline-grid; place-items:center;
+      border-radius:8px; font-size:14px; font-weight:900;
+    }
+    .up{ border-left:6px solid var(--up)}
+    .down{ border-left:6px solid var(--down)}
+    .sig-up .sig-icon{background:rgba(0,184,148,.12); color:var(--up); border:1px solid rgba(0,184,148,.35)}
+    .sig-down .sig-icon{background:rgba(214,48,49,.12); color:var(--down); border:1px solid rgba(214,48,49,.35)}
+    .weak{opacity:.7;}
+
+    .strength-bar{
+      height:10px;background:#0d0f12;border-radius:999px; overflow:hidden;
+      border:1px solid #1c2127;
+    }
+    .strength-fill{height:100%; width:0%; transition: width .6s ease, background .3s ease}
+
+    /* Overlay backdrop + message (enhanced) */
+    .overlay-backdrop{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.35);
+      display:none; z-index:1999;
+      backdrop-filter: blur(2px);
+    }
+    .overlay-backdrop.show{display:block; animation:backdropFade .2s ease forwards;}
+    @keyframes backdropFade{from{opacity:0} to{opacity:1}}
+
+    .overlay-msg{
+      position:fixed; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:linear-gradient(180deg, rgba(18,20,23,.98), rgba(12,13,14,.98));
+      padding:28px 40px; border-radius:18px;
+      font-size:1.35rem; font-weight:800; color:var(--yellow);
+      text-shadow:0 1px 0 #000;
+      box-shadow:
+        0 10px 32px rgba(0,0,0,.45),
+        0 0 0 1px rgba(255,210,0,.18),
+        0 0 24px rgba(255,210,0,.20);
+      opacity:0; pointer-events:none; z-index:2000;
+      display:none;
+      animation:fadeInOut 2s ease forwards;
+    }
+    @keyframes fadeInOut{
+      0%{opacity:0; transform:translate(-50%,-50%) scale(.95);}
+      12%,78%{opacity:1; transform:translate(-50%,-50%) scale(1);}
+      100%{opacity:0; transform:translate(-50%,-50%) scale(.96);}
+    }
+
+    /* Analyzing countdown widget */
+    .analyze-wrap{
+      display:flex; align-items:center; gap:8px;
+      padding:.35rem .6rem; border-radius:999px;
+      background:#0f1216; border:1px solid var(--border); color:var(--muted);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.02);
+      min-width: 160px; justify-content:flex-start;
+    }
+    .spinner{
+      width:16px; height:16px; border-radius:50%;
+      border:2px solid rgba(255,255,255,.15);
+      border-top-color: var(--yellow);
+      animation:spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .analyze-text{font-size:.85rem; letter-spacing:.2px}
+    .analyze-time{font-variant-numeric: tabular-nums; font-weight:700; color:var(--text); margin-left:4px}
+    .analyze-wrap.hidden{display:none;}
+
+    /* Countdown alert states */
+    .analyze-wrap.alert { border-color: rgba(255,210,0,.6); box-shadow: 0 0 0 2px rgba(255,210,0,.18); }
+    .analyze-wrap.alert .analyze-time { color: var(--yellow); }
+    .analyze-wrap.pulse { animation: analyzePulse .9s ease-in-out infinite; }
+    @keyframes analyzePulse {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(-1px); }
+    }
+    .incoming .analyze-text { color: var(--text); font-weight: 800; }
+
+    /* Mute button */
+    #muteBtn{
+      background:none; border:none; cursor:pointer; padding:4px; margin-left:4px;
+      font-size:1rem; display:flex; align-items:center; justify-content:center;
+      color:var(--yellow); transition:color .2s ease, transform .15s ease;
+    }
+    #muteBtn.muted{color:var(--muted);}
+    #muteBtn:hover{transform:scale(1.1);}
+
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="panel assets" id="assetList">
+      <h2 style="color:var(--yellow);">Assets <small id="refreshTick" style="color:var(--muted); font-weight:400; margin-left:8px;"></small></h2>
+      <input type="text" id="searchInput" placeholder="Search assets...">
+      <!-- asset buttons injected -->
+    </div>
+
+    <div class="panel chart">
+      <div class="title-wrap">
+        <h1 id="assetTitle">EUR/USD <span id="marketBadge" class="market-badge">—</span></h1>
+        <div class="row-space" style="gap:10px; display:flex; align-items:center;">
+          <button id="proBtn">PRO</button>
+          <!-- moved controls start -->
+          <div class="control-row" style="display:flex; align-items:center; gap:8px;">
+            <label for="intervalSelect" style="font-size:.85rem; color:var(--muted)">Interval:</label>
+            <select id="intervalSelect"></select>
+            <button id="muteBtn" title="Mute/Unmute">🔊</button>
+            <div id="analyzeWrap" class="analyze-wrap hidden">
+              <div class="spinner"></div>
+              <div class="analyze-text">Analyzing… <span id="analyzeTime" class="analyze-time">--:--</span></div>
+            </div>
+          </div>
+          <!-- moved controls end -->
+        </div>
+      </div>
+
+      <div class="chart-frame-wrap">
+        <iframe id="chartFrame" src=""></iframe>
+      </div>
+    </div>
+
+    <div class="panel signals">
+      <h2>
+        <span>Signal Feed</span>
+        <!-- Start button stays in its original place -->
+        <div class="control-row">
+          <button id="startBtn">Start</button>
+        </div>
+      </h2>
+      <div id="signalList"></div>
+    </div>
+  </div>
+
+  <div id="overlayBackdrop" class="overlay-backdrop"></div>
+  <div id="overlayMsg" class="overlay-msg">PRO Mode On</div>
+
+    <script src="https://unpkg.com/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = "%%SUPABASE_URL%%";
+    const SUPABASE_ANON_KEY = "%%SUPABASE_ANON_KEY%%";
+    window.supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    async function getAuthToken(){
+      const { data: { session } } = await window.supabaseClient.auth.getSession();
+      return session?.access_token || "";
+    }
+  </script>
+
+  <script id="ze-snippet" src="https://static.zdassets.com/ekr/snippet.js?key=28272ed7-c282-4015-ba69-6a7a83c60084"> </script>
+  <script>
+    /* ====== Mute toggle ====== */
+    let isMuted = false;
+    const muteBtn = document.getElementById('muteBtn');
+    function loadMuteState(){
+      const saved = localStorage.getItem('bino_mute');
+      isMuted = saved === '1';
+      muteBtn.classList.toggle('muted', isMuted);
+      muteBtn.textContent = isMuted ? '🔇' : '🔊';
+    }
+    function toggleMute(){
+      isMuted = !isMuted;
+      localStorage.setItem('bino_mute', isMuted ? '1' : '0');
+      muteBtn.classList.toggle('muted', isMuted);
+      muteBtn.textContent = isMuted ? '🔇' : '🔊';
+    }
+    muteBtn.addEventListener('click', toggleMute);
+    loadMuteState();
+
+    /* ====== Audio ping (no external file) ====== */
+    function playPing(){
+      if (isMuted) return;
+      try{
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        const ctx = new AudioContext();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.setValueAtTime(880, ctx.currentTime); // A5
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.15);
+        o.connect(g); g.connect(ctx.destination);
+        o.start(); o.stop(ctx.currentTime + 0.16);
+        setTimeout(()=>ctx.close(), 300);
+      }catch(e){ /* ignore */ }
+    }
+
+    /* Visual state helpers for countdown */
+    function updateAnalyzeVisuals(){
+      const wrap = document.getElementById('analyzeWrap');
+      const textEl = wrap.querySelector('.analyze-text');
+      const timeEl = document.getElementById('analyzeTime');
+      // base state
+      wrap.classList.remove('alert','pulse','incoming');
+      textEl.firstChild.nodeValue = 'Analyzing… ';
+      // alert conditions
+      if (remainingSec <= 10 && remainingSec > 5){
+        wrap.classList.add('alert','pulse');
+      } else if (remainingSec <= 5){
+        wrap.classList.add('alert','pulse','incoming');
+        textEl.firstChild.nodeValue = 'Incoming signal… ';
+      }
+      // time is updated elsewhere
+    }
+
+    /* ====== Countdown (Analyzing...) ====== */
+    let countdownTimer = null;
+    let remainingSec = 0;
+
+    function fmtTime(sec){
+      if (sec < 0) sec = 0;
+      const m = Math.floor(sec/60);
+      const s = sec % 60;
+      return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+    }
+    function showAnalyze(){
+      document.getElementById('analyzeWrap').classList.remove('hidden');
+    }
+    function hideAnalyze(){
+      document.getElementById('analyzeWrap').classList.add('hidden');
+    }
+    function setAnalyze(sec){
+      remainingSec = sec;
+      document.getElementById('analyzeTime').textContent = fmtTime(remainingSec);
+      updateAnalyzeVisuals();
+    }
+    function resetCountdownToCurrentInterval(){
+      const mins = isPro ? (proIntervalMinutes || 3) : (simIntervalMinutes || 1);
+      setAnalyze(mins * 60);
+    }
+    function startCountdown(){
+      showAnalyze();
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = setInterval(() => {
+        remainingSec--;
+        if (remainingSec < 0) remainingSec = 0;
+        document.getElementById('analyzeTime').textContent = fmtTime(remainingSec);
+        updateAnalyzeVisuals();
+      }, 1000);
+    }
+    function stopCountdown(){
+      if (countdownTimer) clearInterval(countdownTimer);
+      countdownTimer = null;
+      hideAnalyze();
+    }
+
+    /* ====== Notifications (overlay) ====== */
+    function showOverlayMessage(text, duration=2000){
+      const overlay = document.getElementById('overlayMsg');
+      const backdrop = document.getElementById('overlayBackdrop');
+      overlay.textContent = text;
+      backdrop.classList.add('show');
+      overlay.style.display = 'block';
+      // restart animation
+      overlay.style.animation = 'none'; overlay.offsetHeight; overlay.style.animation = '';
+      overlay.style.animation = 'fadeInOut ' + (duration/1000) + 's ease forwards';
+      setTimeout(()=>{ overlay.style.display = 'none'; backdrop.classList.remove('show'); }, duration);
+    }
+
+    /* ====== Original data & state ====== */
+    const assets = {
+      "EUR/USD": "FX:EURUSD","GBP/USD": "FX:GBPUSD","USD/JPY": "FX:USDJPY","USD/CHF": "FX:USDCHF",
+      "AUD/USD": "FX:AUDUSD","USD/CAD": "FX:USDCAD","NZD/USD": "FX:NZDUSD","EUR/GBP": "FX:EURGBP",
+      "EUR/JPY": "FX:EURJPY","EUR/CHF": "FX:EURCHF","EUR/AUD": "FX:EURAUD","EUR/CAD": "FX:EURCAD",
+      "GBP/JPY": "FX:GBPJPY","GBP/CHF": "FX:GBPCHF","GBP/AUD": "FX:GBPAUD","GBP/CAD": "FX:GBPCAD",
+      "AUD/JPY": "FX:AUDJPY","AUD/CAD": "FX:AUDCAD","AUD/NZD": "FX:AUDNZD","CAD/JPY": "FX:CADJPY",
+      "CAD/CHF": "FX:CADCHF","NZD/JPY": "FX:NZDJPY","NZD/CAD": "FX:NZDCAD","GBP/NZD": "FX:GBPNZD",
+      "Gold (XAU/USD)": "COMEX:GC1!","Silver (XAG/USD)": "COMEX:SI1!","Crude Oil WTI": "NYMEX:CL1!","Brent Oil": "ICE:BRN1!",
+      "BTC/USD": "COINBASE:BTCUSD","ETH/USD": "COINBASE:ETHUSD","LTC/USD": "COINBASE:LTCUSD","XRP/USD": "COINBASE:XRPUSD",
+      "ADA/USD": "COINBASE:ADAUSD","Apple (AAPL)": "NASDAQ:AAPL","Tesla (TSLA)": "NASDAQ:TSLA","Amazon (AMZN)": "NASDAQ:AMZN",
+      "Google (GOOGL)": "NASDAQ:GOOGL","Microsoft (MSFT)": "NASDAQ:MSFT","Meta (META)": "NASDAQ:META","NVIDIA (NVDA)": "NASDAQ:NVDA",
+      "Netflix (NFLX)": "NASDAQ:NFLX"
+    };
+
+    const twelveDataSymbols = {
+      "EUR/USD": "EUR/USD","GBP/USD": "GBP/USD","USD/JPY": "USD/JPY","USD/CHF": "USD/CHF",
+      "AUD/USD": "AUD/USD","USD/CAD": "USD/CAD","NZD/USD": "NZD/USD","EUR/GBP": "EUR/GBP",
+      "EUR/JPY": "EUR/JPY","EUR/CHF": "EUR/CHF","EUR/AUD": "EUR/AUD","EUR/CAD": "EUR/CAD",
+      "GBP/JPY": "GBP/JPY","GBP/CHF": "GBP/CHF","GBP/AUD": "GBP/AUD","GBP/CAD": "GBP/CAD",
+      "AUD/JPY": "AUD/JPY","AUD/CAD": "AUD/CAD","AUD/NZD": "AUD/NZD","CAD/JPY": "CAD/JPY",
+      "CAD/CHF": "CAD/CHF","NZD/JPY": "NZD/JPY","NZD/CAD": "NZD/CAD","GBP/NZD": "GBP/NZD",
+      "Gold (XAU/USD)": "XAU/USD","Silver (XAG/USD)": "XAG/USD","Crude Oil WTI": "WTI","Brent Oil": "BRENT",
+      "BTC/USD": "BTC/USD","ETH/USD": "ETH/USD","LTC/USD": "LTC/USD","XRP/USD": "XRP/USD",
+      "ADA/USD": "ADA/USD","Apple (AAPL)": "AAPL","Tesla (TSLA)": "TSLA","Amazon (AMZN)": "AMZN",
+      "Google (GOOGL)": "GOOGL","Microsoft (MSFT)": "MSFT","Meta (META)": "META","NVIDIA (NVDA)": "NVDA",
+      "Netflix (NFLX)": "NFLX"
+    };
+
+    const cryptoSet = new Set(["BTC/USD","ETH/USD","LTC/USD","XRP/USD","ADA/USD"]);
+    const stockSet = new Set(["Apple (AAPL)","Tesla (TSLA)","Amazon (AMZN)","Google (GOOGL)","Microsoft (MSFT)","Meta (META)","NVIDIA (NVDA)","Netflix (NFLX)"]);
+
+    let selectedAsset = "EUR/USD";
+    const apiKey = "859993edc9764b35be25f68f12e0daa5";
+    const assetList = document.getElementById('assetList');
+    const assetTitle = document.getElementById('assetTitle');
+    const chartFrame = document.getElementById('chartFrame');
+    const signalList = document.getElementById('signalList');
+    const proBtn = document.getElementById('proBtn');
+    const startBtn = document.getElementById('startBtn');
+    const badge = document.getElementById('marketBadge');
+
+    let signalInterval = null;
+    let isPro = false;
+    let running = false;
+    let assetSelected = false;
+    let lastNonHoldTimestamp = Date.now();
+    window.lastFetchedCloses = window.lastFetchedCloses || [];
+
+    /* ====== Helpers & market hours ====== */
+    window.DEBUG_REFRESH = false;
+    function updateChart(symbol) {
+      chartFrame.src = `https://s.tradingview.com/widgetembed/?symbol=${symbol}&interval=1&theme=dark`;
+    }
+    function isForexOpen(now = new Date()) {
+
+  // DST-safe via New York time; fallback to UTC window if Intl fails.
+  const d = now instanceof Date ? now : new Date();
+  try {
+    const weekdayFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' });
+    const hmFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' });
+    const wd = weekdayFmt.format(d); // "Sun".."Sat"
+    const [hh, mm] = hmFmt.format(d).split(':');
+    const minutes = parseInt(hh,10) * 60 + parseInt(mm,10);
+    const dayMap = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+    const day = dayMap[wd];
+    const OPEN_MIN = 17 * 60;   // Sunday 17:00 NY
+    const CLOSE_MIN = 17 * 60;  // Friday 17:00 NY
+    if (day === 6) return false;                 // Saturday
+    if (day === 0) return minutes >= OPEN_MIN;   // Sunday after 17:00
+    if (day === 5) return minutes < CLOSE_MIN;   // Friday before 17:00
+    return true;                                  // Mon–Thu
+  } catch(e) {
+    // Fallback to robust UTC rule (Sun 22:05 → Fri 21:55; Mon–Thu 21:00–21:05 maintenance)
+  }
+  const utcDay = d.getUTCDay();
+  const utcMinutes = d.getUTCHours()*60 + d.getUTCMinutes();
+  const SUNDAY_OPEN = 22*60 + 5;     // 22:05 UTC
+  const FRIDAY_CLOSE = 21*60 + 55;   // 21:55 UTC
+  if (utcDay === 6) return false;
+  if (utcDay === 0 && utcMinutes < SUNDAY_OPEN) return false;
+  if (utcDay === 5 && utcMinutes >= FRIDAY_CLOSE) return false;
+  if (utcDay >= 1 && utcDay <= 4 && utcMinutes >= 21*60 && utcMinutes < 21*60 + 5) return false;
+  return true;
+
+}
+    function getEasternTime(date = new Date()) {
+      const utc = date.getTime() + date.getTimezoneOffset() * 60000;
+      const easternOffset = -4 * 60; // EDT assumed
+      return new Date(utc + easternOffset * 60000);
+    }
+    function isStockOpen(now = new Date()) {
+
+  // U.S. equities (NYSE/Nasdaq) regular session in New York time: 09:30–16:00
+  // DST handled via Intl timezone.
+  const d = now instanceof Date ? now : new Date();
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hour12: false,
+      hour: '2-digit', minute: '2-digit', weekday: 'short'
+    }).formatToParts(d).reduce((acc,p)=>{ acc[p.type]=p.value; return acc; },{});
+    const wd = parts.weekday; // "Sun".."Sat"
+    const dayMap = { Sun:0, Mon:1, Tue:2, Wed:3, Thu:4, Fri:5, Sat:6 };
+    const day = dayMap[wd];
+    const h = parseInt(parts.hour,10);
+    const m = parseInt(parts.minute,10);
+    if (day === 0 || day === 6) return false; // weekend
+    if (h < 9 || (h === 9 && m < 30)) return false;
+    if (h > 16 || (h === 16 && m > 0)) return false;
+    return true;
+  } catch(e) {
+    // Fallback: treat as closed on weekend; else 09:30–16:00 by local clock
+  }
+  const day = d.getDay();
+  const h = d.getHours(), m = d.getMinutes();
+  if (day === 0 || day === 6) return false;
+  if (h < 9 || (h === 9 && m < 30)) return false;
+  if (h > 16 || (h === 16 && m > 0)) return false;
+  return true;
+
+}
+    function isAssetOpen(assetName) {
+      const now = new Date();
+      if (cryptoSet.has(assetName)) return true;
+      if (stockSet.has(assetName)) return isStockOpen(now);
+      return isForexOpen(now);
+    }
+    function setMarketBadge(open){
+      badge.textContent = open ? "Open" : "Closed";
+      badge.classList.toggle("open", open);
+      badge.classList.toggle("closed", !open);
+    }
+function refreshAssetButtons() {
+  document.querySelectorAll('.btn-asset').forEach(btn => {
+    const assetName = btn.dataset.asset;
+    const open = isAssetOpen(assetName);
+    // label only
+    btn.innerText = assetName + (open ? '' : ' (Closed)');
+    // do NOT disable; keep clickable always
+  });
+  // heartbeat
+  try {
+    const hb = document.getElementById('refreshTick');
+    if (hb) hb.textContent = new Date().toUTCString().split(' ')[4] + ' UTC';
+    if (window.DEBUG_REFRESH) console.log('[refreshAssetButtons]', hb ? hb.textContent : new Date().toISOString());
+  } catch(_){}
+  if (selectedAsset) setMarketBadge(isAssetOpen(selectedAsset));
+  else setMarketBadge(false);
+}
+
+    /* ====== Build asset list ====== */
+    Object.keys(assets).forEach(asset => {
+      const btn = document.createElement('button');
+      btn.className = "btn-asset";
+      btn.dataset.asset = asset;
+      const open = isAssetOpen(asset);
+      btn.innerText = asset + (open ? '' : ' (Closed)');
+      // removed: keep clickable even when closed
+      btn.addEventListener('click', () => { document.querySelectorAll('.btn-asset').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        selectedAsset = asset;
+        assetTitle.childNodes[0].nodeValue = asset + " ";
+        setMarketBadge(isAssetOpen(asset));
+        updateChart(assets[asset]);
+        assetSelected = true;
+      });
+      
+// Auto-select EUR/USD on first load
+try { selectAsset('EUR/USD'); } catch(e) { console.warn('Auto-select failed', e); }
+if (asset === selectedAsset && isAssetOpen(asset)) {
+        btn.classList.add('active');
+        updateChart(assets[asset]);
+        assetSelected = true;
+        setMarketBadge(true);
+      }
+      assetList.appendChild(btn);
+    });
+    setInterval(refreshAssetButtons, 1000);
+    refreshAssetButtons();
+
+    document.getElementById('searchInput').addEventListener('input', function () {
+      const filter = this.value.toUpperCase();
+      document.querySelectorAll('#assetList .btn-asset').forEach(btn => {
+        btn.style.display = btn.dataset.asset.toUpperCase().includes(filter) ? '' : 'none';
+      });
+    });
+
+    /* ====== Indicators ====== */
+    function calculateEMA(data, period) {
+      if (data.length < period) return Array(data.length).fill(data[data.length - 1]);
+      const k = 2 / (period + 1);
+      let emaArray = [], sum = 0;
+      for (let i = 0; i < period; i++) sum += data[i];
+      let prevEma = sum / period; emaArray[period - 1] = prevEma;
+      for (let i = period; i < data.length; i++) {
+        const ema = data[i] * k + prevEma * (1 - k);
+        emaArray[i] = ema; prevEma = ema;
+      }
+      for (let i = 0; i < data.length; i++) if (emaArray[i] === undefined) emaArray[i] = i > 0 ? emaArray[i - 1] : data[i];
+      return emaArray;
+    }
+    function calculateRSI(closes, period = 7) {
+      if (closes.length <= period) return 50;
+      let gains = 0, losses = 0;
+      for (let i = closes.length - period; i < closes.length; i++) {
+        const diff = closes[i] - closes[i - 1];
+        if (diff > 0) gains += diff; else losses -= diff;
+      }
+      const avgGain = gains / period; const avgLoss = losses / period || 1;
+      const rs = avgGain / avgLoss; return 100 - (100 / (1 + rs));
+    }
+    function calculateATR(highs, lows, closes, period = 14) {
+      if (highs.length < period + 1) return null;
+      let trs = [];
+      for (let i = 1; i < highs.length; i++) {
+        const tr = Math.max(highs[i] - lows[i], Math.abs(highs[i] - closes[i-1]), Math.abs(lows[i] - closes[i-1]));
+        trs.push(tr);
+      }
+      let prevATR = trs.slice(0, period).reduce((a,b)=>a+b,0) / period;
+      let atrs = [prevATR];
+      for (let i = period; i < trs.length; i++) {
+        const atr = (prevATR * (period - 1) + trs[i]) / period;
+        atrs.push(atr); prevATR = atr;
+      }
+      return atrs;
+    }
+    function scoreToColor(score) {
+      if (score <= 50) {
+        const ratio = score / 50;
+        const r = 255, g = Math.round(255 * ratio);
+        return `rgb(${r},${g},0)`;
+      } else {
+        const ratio = (score - 50) / 50;
+        const r = Math.round(255 * (1 - ratio)), g = 255;
+        return `rgb(${r},${g},0)`;
+      }
+    }
+
+    /* ====== Signal rendering ====== */
+    function makeSignalDiv(){
+      const div = document.createElement('div');
+      div.className = 'signal';
+      return div;
+    }
+    function appendStrength(div, strength){
+      if (strength === undefined || strength === null) return;
+      const bar = document.createElement('div'); bar.className = 'strength-bar';
+      const fill = document.createElement('div'); fill.className = 'strength-fill';
+      fill.style.background = scoreToColor(strength);
+      bar.appendChild(fill); div.appendChild(bar);
+      requestAnimationFrame(()=> { fill.style.width = Math.min(100, strength) + '%'; });
+    }
+    function showSignal(direction, strength, signalType = 'signal', weak = false) {
+      const now = new Date().toLocaleTimeString().slice(0,5);
+      const div = makeSignalDiv();
+      div.classList.add(direction === 'UP' ? 'up' : 'down');
+      if (weak) div.classList.add('weak');
+      const row = document.createElement('div'); row.className='row ' + (direction === 'UP' ? 'sig-up':'sig-down');
+      const icon = document.createElement('div'); icon.className='sig-icon'; icon.textContent = direction === 'UP' ? '▲' : '▼';
+      row.appendChild(icon);
+      const text = document.createElement('div'); text.textContent = `[${now}] ${selectedAsset} — ${direction}${weak ? ' (weak)' : ''}`;
+      row.appendChild(text);
+      div.appendChild(row);
+      appendStrength(div, strength);
+      signalList.prepend(div);
+      playPing();
+    }
+    function showHold(reason = '') {
+      const now = new Date().toLocaleTimeString().slice(0,5);
+      const div = makeSignalDiv();
+      const row = document.createElement('div'); row.className='row';
+      const icon = document.createElement('div'); icon.className='sig-icon'; icon.textContent = '•';
+      row.appendChild(icon);
+      const text = document.createElement('div'); text.textContent = `[${now}] ${selectedAsset || '—'} — HOLD ${reason ? '(' + reason + ')' : ''}`;
+      row.appendChild(text);
+      div.appendChild(row);
+      signalList.prepend(div);
+      playPing();
+    }
+
+    /* ====== Fetch & logic ====== */
+    function fetchWithRetry(url, attempts = 2, token = "") {
+      return fetch(url, {
+        headers: token ? { "Authorization": "Bearer " + token } : {}
+      }).then(res => {
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        return res.json();
+      }).catch(err => {
+        if (attempts > 0) { return new Promise(r => setTimeout(r, 800)).then(() => fetchWithRetry(url, attempts - 1, token)); }
+        throw err;
+      });
+    }).catch(err => {
+        if (attempts > 0) { return new Promise(r => setTimeout(r, 800)).then(() => fetchWithRetry(url, attempts - 1)); }
+        throw err;
+      });
+    }
+    function evaluateBinarySignal(closes, highs, lows) {
+      if (closes.length < 25) return { final: 'HOLD', score: 0, weak: false, breakdown: null };
+      const len = closes.length;
+      const emaShort = calculateEMA(closes, 8);
+      const emaLong = calculateEMA(closes, 21);
+      const prevShort = emaShort[len - 2];
+      const prevLong = emaLong[len - 2];
+      const currShort = emaShort[len - 1];
+      const currLong = emaLong[len - 1];
+      let direction = null; let score = 0; let trendScore = 0;
+      if (prevShort <= prevLong && currShort > currLong) { direction = 'UP'; trendScore = 35; score += 35; }
+      else if (prevShort >= prevLong && currShort < currLong) { direction = 'DOWN'; trendScore = 35; score += 35; }
+      else if (currShort > currLong) { direction = 'UP'; trendScore = 20; score += 20; }
+      else if (currShort < currLong) { direction = 'DOWN'; trendScore = 20; score += 20; }
+      else { direction = 'HOLD'; }
+      if (direction === 'HOLD') { return { final:'HOLD', score, weak:false, breakdown:{ trend:trendScore, rsi:0, momentum:0, volatility:0 } }; }
+      const rsi = calculateRSI(closes, 7); let rsiScore = 0;
+      if (direction === 'UP' && rsi > 50) { rsiScore = 20; score += 20; }
+      if (direction === 'DOWN' && rsi < 50) { rsiScore = 20; score += 20; }
+      const lastMove = closes[len - 1] - closes[len - 2];
+      const prevMove = closes[len - 2] - closes[len - 3];
+      let momentumScore = 0;
+      if (direction === 'UP' && lastMove > 0 && prevMove > 0) { momentumScore = 15; score += 15; }
+      if (direction === 'DOWN' && lastMove < 0 && prevMove < 0) { momentumScore = 15; score += 15; }
+      let volatilityScore = 0;
+      const atrArr = calculateATR(highs, lows, closes, 14);
+      if (atrArr && atrArr.length > 0) {
+        const latestATR = atrArr[atrArr.length - 1];
+        const currRange = highs[highs.length - 1] - lows[lows.length - 1];
+        if (currRange >= latestATR * 0.5) { volatilityScore = 15; score += 15; }
+        else { volatilityScore = 5; score += 5; }
+      }
+      if (score >= 50) { return { final: direction, score, weak:false, breakdown:{trend:trendScore, rsi:rsiScore, momentum:momentumScore, volatility:volatilityScore} }; }
+      else if (score >= 25) { return { final: direction, score, weak:true, breakdown:{trend:trendScore, rsi:rsiScore, momentum:momentumScore, volatility:volatilityScore} }; }
+      else { return { final:'HOLD', score, weak:false, breakdown:{trend:trendScore, rsi:rsiScore, momentum:momentumScore, volatility:volatilityScore} }; }
+    }
+    function forceFallbackSignal() {
+      if (!selectedAsset || !isAssetOpen(selectedAsset)) { showOverlayMessage('Market Closed', 1400); return; }
+      if (!window.lastFetchedCloses || window.lastFetchedCloses.length < 3) return;
+      const closes = window.lastFetchedCloses; const len = closes.length;
+      let direction = 'HOLD';
+      if (closes[len - 3] < closes[len - 2] && closes[len - 2] < closes[len - 1]) direction = 'UP';
+      else if (closes[len - 3] > closes[len - 2] && closes[len - 2] > closes[len - 1]) direction = 'DOWN';
+      if (direction !== 'HOLD') { showSignal(direction, 40, 'signal', true); lastNonHoldTimestamp = Date.now(); }
+    }
+
+    /* ====== Dynamic Interval Selector ====== */
+    let simIntervalMinutes = 1;  // 1..5
+    let proIntervalMinutes = 3;  // 3..15
+    const intervalSelect = document.getElementById('intervalSelect');
+    function populateIntervalOptions() {
+      while (intervalSelect.firstChild) intervalSelect.removeChild(intervalSelect.firstChild);
+      if (isPro) {
+        for (let m = 3; m <= 15; m++) { const opt = document.createElement('option'); opt.value = String(m); opt.textContent = m + ' min'; intervalSelect.appendChild(opt); }
+        intervalSelect.value = String(proIntervalMinutes || 3);
+      } else {
+        for (let m = 1; m <= 5; m++) { const opt = document.createElement('option'); opt.value = String(m); opt.textContent = m + ' min'; intervalSelect.appendChild(opt); }
+        intervalSelect.value = String(simIntervalMinutes || 1);
+      }
+    }
+    populateIntervalOptions();
+    intervalSelect.addEventListener('change', () => {
+      const val = parseInt(intervalSelect.value, 10);
+      if (isPro) { proIntervalMinutes = val; } else { simIntervalMinutes = val; }
+      if (running) {
+        clearInterval(signalInterval);
+        if (isPro) {
+          signalInterval = setInterval(() => { runProSignal(); resetCountdownToCurrentInterval(); }, proIntervalMinutes * 60 * 1000);
+        } else {
+          signalInterval = setInterval(() => { simulateSignal(); resetCountdownToCurrentInterval(); }, simIntervalMinutes * 60 * 1000);
+        }
+        resetCountdownToCurrentInterval();
+      }
+    });
+
+    /* ====== Start/Stop and mode toggle ====== */
+    function startSignals(){
+      if (!assetSelected || !selectedAsset) { showOverlayMessage('Select asset first', 1400); return; }
+      if (!isAssetOpen(selectedAsset)) { showOverlayMessage('Asset closed', 1400); return; }
+      if (!running) {
+        if (isPro) {
+          runProSignal();
+          resetCountdownToCurrentInterval(); startCountdown();
+          signalInterval = setInterval(() => { runProSignal(); resetCountdownToCurrentInterval(); }, proIntervalMinutes * 60 * 1000);
+        } else {
+          simulateSignal();
+          resetCountdownToCurrentInterval(); startCountdown();
+          signalInterval = setInterval(() => { simulateSignal(); resetCountdownToCurrentInterval(); }, simIntervalMinutes * 60 * 1000);
+        }
+        startBtn.textContent = 'Stop'; startBtn.classList.add('running'); running = true;
+      }
+    }
+    function stopSignals(){
+      if (running) {
+        clearInterval(signalInterval);
+        startBtn.textContent = 'Start'; startBtn.classList.remove('running'); running = false; stopCountdown();
+      }
+    }
+    const simulateSignal = () => {
+      if (!selectedAsset || !isAssetOpen(selectedAsset)) { showHold('Market closed'); return; }
+      const isUp = Math.random() > 0.5;
+      const strength = Math.floor(Math.random() * 60 + 40);
+      showSignal(isUp ? 'UP' : 'DOWN', strength, 'signal', false);
+      lastNonHoldTimestamp = Date.now();
+    };
+
+    function runProSignal(){
+  if (!selectedAsset || !isAssetOpen(selectedAsset)) { showOverlayMessage('Market Closed', 1400); return; }
+      if (!selectedAsset || !isAssetOpen(selectedAsset)) { showHold('Market closed'); return; }
+      if (!isPro) { showHold('PRO kapalı'); return; }
+      const tdSym = twelveDataSymbols[selectedAsset] || selectedAsset;
+      const url = `/.netlify/functions/signal?symbol=${encodeURIComponent(tdSym)}`;
+      (async () => {
+        const token = await getAuthToken();
+        await fetchWithRetry(url, 2, token);
+      })().then(data => {
+        if (!data.values || data.values.length < 25) { showHold('No Score'); return; }
+        const closes = data.values.map(v => parseFloat(v.close)).reverse();
+        const highs = data.values.map(v => parseFloat(v.high)).reverse();
+        const lows = data.values.map(v => parseFloat(v.low)).reverse();
+        window.lastFetchedCloses = closes;
+        const result = evaluateBinarySignal(closes, highs, lows);
+        if (result.final === 'HOLD') { showHold('Low Score: ' + result.score); }
+        else { showSignal(result.final, Math.min(100, result.score), 'signal', result.weak); lastNonHoldTimestamp = Date.now(); }
+      }).catch(err => { console.error('PRO API hatası:', err); showHold('Fetch error'); });
+    }
+
+    proBtn.addEventListener('click', () => {
+      isPro = !isPro;
+      proBtn.classList.toggle('pulsing', isPro);
+      populateIntervalOptions();
+      showOverlayMessage(isPro ? 'PRO Mode On' : 'PRO Mode Off', 2000);
+      stopSignals(); // do not auto-start on mode change
+      hideAnalyze();
+    });
+    startBtn.addEventListener('click', () => { 
+  if (!selectedAsset || !isAssetOpen(selectedAsset)) { showOverlayMessage('Market Closed', 1400); return; } running ? stopSignals() : startSignals(); });
+
+    setInterval(() => {
+      if (isPro && running && (Date.now() - lastNonHoldTimestamp) > 3 * 60 * 1000) { forceFallbackSignal(); }
+    }, 30000);
+  </script>
+</body>
+</html>
